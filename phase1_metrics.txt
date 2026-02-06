@@ -1,0 +1,30 @@
+Accuracy: 0.981403212172443
+Macro Precision: 0.9474225366916104
+Macro Recall: 0.982356764684599
+Confusion Matrix:
+[[132   0   0   0   0   0   0   0   0]
+ [  0 130   0   1   0   0   1   0   2]
+ [  0   0 153   0   1   2   0   0   0]
+ [  0   0   0 224   1   0   0   0   0]
+ [  0   0   1   1 128   0   2   1   0]
+ [  3   0   0   1   0 129   0   0   0]
+ [  0   2   0   0   1   0 130   0   0]
+ [  0   0   0   0   0   0   2 131   0]
+ [  0   0   0   0   0   0   0   0   4]]
+
+Classification report:
+              precision    recall  f1-score   support
+
+       Clean       0.98      1.00      0.99       132
+      Shorts       0.98      0.97      0.98       134
+       Opens       0.99      0.98      0.99       156
+     Bridges       0.99      1.00      0.99       225
+        Vias       0.98      0.96      0.97       133
+   Scratches       0.98      0.97      0.98       133
+      Cracks       0.96      0.98      0.97       133
+         LER       0.99      0.98      0.99       133
+       Other       0.67      1.00      0.80         4
+
+    accuracy                           0.98      1183
+   macro avg       0.95      0.98      0.96      1183
+weighted avg       0.98      0.98      0.98      1183
