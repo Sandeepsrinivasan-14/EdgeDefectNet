@@ -4,3 +4,5 @@ __pycache__/
 *.pt
 *.pth
 *.zip
+
+data/mixedtype_wafer/Wafer_Map_Datasets.npz
