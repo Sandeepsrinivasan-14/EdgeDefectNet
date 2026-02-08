@@ -25,40 +25,69 @@ The model predicts one of the following 9 classes:
 
 ## Dataset (Phase-1)
 
+### Dataset Composition
+- Train: 4,384 images  
+- Validation: 1,096 images  
+- Test: 1,183 images  
+
+During training, a fixed fraction of the training data is reserved internally as a validation subset for early stopping and best-checkpoint selection. The Test split is held out and used only for final evaluation.
+
 ### Folder Structure (Submission ZIP)
-Train/
-+- <class_name>/
 
-Validation/
-+- <class_name>/
+`edge_defect_phase1_dataset.zip`
+```text
++-- Train/
+¦   +-- Clean/
+¦   +-- Shorts/
+¦   +-- Opens/
+¦   +-- Bridges/
+¦   +-- Vias/
+¦   +-- Scratches/
+¦   +-- Cracks/
+¦   +-- LER/
+¦   +-- Other/
++-- Validation/
+¦   +-- Clean/
+¦   +-- Shorts/
+¦   +-- Opens/
+¦   +-- Bridges/
+¦   +-- Vias/
+¦   +-- Scratches/
+¦   +-- Cracks/
+¦   +-- LER/
+¦   +-- Other/
++-- Test/
+    +-- Clean/
+    +-- Shorts/
+    +-- Opens/
+    +-- Bridges/
+    +-- Vias/
+    +-- Scratches/
+    +-- Cracks/
+    +-- LER/
+    +-- Other/
+Each <class_name> corresponds to one of the 9 defect classes listed above.
 
-Test/
-+- <class_name>/
+Image Properties
+Image type: Grayscale wafer-edge or wafer-map images
 
+Format: .png (and similar lossless formats)
 
-Each `<class_name>` corresponds to one of the 9 defect classes listed above.
+Resolution: 224 × 224 (applied via preprocessing)
 
-### Image Properties
-- Image type: Grayscale wafer-edge or wafer-map images  
-- Format: `.png` (and similar formats)  
-- Dataset archive (Phase-1):  
-  `edge_defect_phase1_dataset.zip`  
-  containing `Train/`, `Validation/`, and `Test/`
-
----
-
-## Environment Setup
-
-### Create and Activate Virtual Environment
-```bash
+Environment Setup
+Create and Activate Virtual Environment
+bash
 python -m venv venv
 venv\Scripts\activate    # Windows
 Install Dependencies
 Using requirements.txt:
 
+bash
 pip install -r requirements.txt
 Or install manually:
 
+bash
 pip install torch torchvision scikit-learn pillow onnx onnxscript
 Note: onnx and onnxscript are only required if ONNX export is needed.
 
@@ -80,16 +109,22 @@ Training platform: Windows 11, Python 3.11
 Hardware: CPU-only training and inference
 
 Training Command
+bash
 python train_phase1.py
+The training script uses the Train split and monitors performance on the Validation split (created from the training data) for early stopping and model selection.
+
 Best checkpoint is saved at:
 
+text
 checkpoints/phase1_best_resnet18.pt
 Inference (Single Image)
 Run inference on a single image:
 
+bash
 python -m scripts.infer_phase1 --image path\to\image.png
 Example:
 
+bash
 python -m scripts.infer_phase1 --image .\dataset\Test\Shorts\MULTI_CLASS__image_Center_12015_png_jpg.rf.88f63a2bceb47b58fb93b4d118ee3738.png
 This performs:
 
@@ -104,6 +139,7 @@ Final predicted class output
 Export to ONNX
 Export the trained PyTorch model to ONNX:
 
+bash
 python export_onnx.py
 Export Details
 Output file: edge_defect_phase1.onnx
@@ -115,6 +151,8 @@ Approximate size: ~0.08 MB
 The script rebuilds the model using build_model from scripts.infer_phase1 and loads the trained checkpoint.
 
 Results (Test Set)
+All metrics below are computed exclusively on the held-out Test set (dataset/Test), which is never used during training or validation.
+
 Evaluation performed on the held-out test set (dataset/Test).
 
 Accuracy: 0.9814
@@ -124,6 +162,7 @@ Macro Precision: 0.9474
 Macro Recall: 0.9824
 
 Confusion Matrix
+text
 [[132   0   0   0   0   0   0   0   0]
  [  0 130   0   1   0   0   1   0   2]
  [  0   0 153   0   1   2   0   0   0]
@@ -134,6 +173,7 @@ Confusion Matrix
  [  0   0   0   0   0   0   2 131   0]
  [  0   0   0   0   0   0   0   0   4]]
 Classification Report
+text
               precision    recall  f1-score   support
 Clean           0.98      1.00      0.99       132
 Shorts          0.98      0.97      0.98       134
@@ -149,23 +189,25 @@ Accuracy                              0.98      1183
 Macro Avg        0.95      0.98      0.96      1183
 Weighted Avg     0.98      0.98      0.98      1183
 Repository Structure
+text
 EdgeDefectNet/
 +- scripts/
-¦  +- infer_phase1.py
-¦  +- config_phase1.py
-¦  +- dataloaders_phase1.py
+|  +- infer_phase1.py
+|  +- config_phase1.py
+|  +- dataloaders_phase1.py
 +- checkpoints/
-¦  +- phase1_best_resnet18.pt
-¦  +- phase1_class_names.py
+|  +- phase1_best_resnet18.pt
+|  +- phase1_class_names.py
 +- export_onnx.py
 +- compute_phase1_metrics.py
-+- dataset/                  # Local only (not tracked in Git)
++- dataset/                  # Folder structure tracked via .gitkeep, images ignored
 +- edge_defect_phase1_dataset.zip
 +- README.md
 +- requirements.txt
-Note: Large datasets are not tracked in Git. Use .gitignore for dataset/.
+Note: Large datasets are not tracked in Git. Use .gitignore for dataset images.
 
 Reproducing Phase-1 Results
+bash
 python train_phase1.py
 python compute_phase1_metrics.py
 python export_onnx.py
