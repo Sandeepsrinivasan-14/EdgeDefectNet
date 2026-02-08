@@ -1,4 +1,5 @@
-dataset/
+dataset/*
+!dataset/**/.gitkeep
 edge_defect_phase1_dataset.zip
 __pycache__/
 *.pt
