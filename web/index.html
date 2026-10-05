@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EdgeDefectNet: wafer defect classifier</title>
+  <meta name="description" content="Classify wafer maps into 9 defect classes with a grayscale ResNet-18, running entirely in your browser.">
+  <link rel="preload" href="fonts/archivo-variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23FFC53D'/%3E%3Cpath d='M9 26h14' stroke='%2312101C' stroke-width='3'/%3E%3C/svg%3E">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="brand" href="#top">EdgeDefectNet</a>
+    <nav>
+      <a href="#model">Model card</a>
+      <a href="https://github.com/Sandeepsrinivasan-14/EdgeDefectNet">Source on GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>Read a wafer map<br>in your browser.</h1>
+        <p class="lede">A grayscale ResNet-18 sorts wafer images into nine defect classes. The model runs here on your
+          device with ONNX Runtime Web, so images never leave your computer.</p>
+      </div>
+      <div class="wafer-stage" id="stage">
+        <canvas id="wafer" aria-label="3D wafer showing the selected image"></canvas>
+        <div class="stage-note" id="stageNote">Pick an example or drop an image</div>
+      </div>
+    </section>
+
+    <section class="workbench">
+      <div class="panel input-panel">
+        <h2>Image</h2>
+        <label class="drop" id="drop" tabindex="0">
+          <input type="file" id="file" accept="image/*">
+          <span class="drop-title">Drop a wafer image here</span>
+          <span class="drop-sub">or click to choose a PNG or JPG</span>
+        </label>
+        <h3>Held-out examples</h3>
+        <p class="hint">One image per class from the test split, never seen in training.</p>
+        <div class="examples" id="examples"></div>
+      </div>
+
+      <div class="panel result-panel" aria-live="polite">
+        <h2>Prediction</h2>
+        <div class="status" id="status">The model (45 MB) downloads the first time you classify an image.</div>
+        <div class="progress" id="progress" hidden><div class="bar" id="bar"></div></div>
+        <div class="top" id="top1" hidden>
+          <div class="top-label" id="topLabel"></div>
+          <div class="top-conf" id="topConf"></div>
+          <div class="truth" id="truth"></div>
+        </div>
+        <ol class="bars" id="bars"></ol>
+        <p class="timing" id="timing"></p>
+      </div>
+    </section>
+
+    <section class="model" id="model">
+      <h2>Model card</h2>
+      <div class="model-grid">
+        <div class="panel">
+          <h3>Held-out test results</h3>
+          <div class="stats" id="stats"><p class="hint">Loading metrics…</p></div>
+          <div class="sources" id="sources"></div>
+        </div>
+        <div class="panel">
+          <h3>Confusion matrix</h3>
+          <p class="hint">Rows are true classes, columns are predictions. Darker means more images.</p>
+          <div class="matrix" id="matrix"></div>
+        </div>
+        <div class="panel wide">
+          <h3>Read this before trusting a prediction</h3>
+          <ul class="caveats">
+            <li>Most training images are WM-811K-style wafer maps. Their spatial patterns were mapped onto the
+              challenge's class names (for example <em>Center</em> became <em>Shorts</em>), so for those images
+              the names are proxy labels, not electrical diagnoses.</li>
+            <li><em>Vias</em> has only 23 images in total, so its scores are very uncertain.</li>
+            <li>The split keeps every augmented copy of a wafer in one partition. The first version of this
+              project leaked copies across train and test and mislabelled its outputs; the
+              <a href="https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/blob/main/reports/v1_audit.md">audit</a>
+              explains both.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Built by Sandeep Srinivasan under the MIT licence</span>
+    <span>Archivo font, SIL Open Font License</span>
+  </footer>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

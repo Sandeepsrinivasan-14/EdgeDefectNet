@@ -1,221 +1,163 @@
-# EdgeDefectNet – Wafer Edge Defect Classification
+# EdgeDefectNet
 
-## Overview
-EdgeDefectNet is a deep learning–based wafer edge defect classification system built on a modified **ResNet-18** architecture.  
-The model classifies **grayscale wafer edge / wafer map images** into **9 defect categories**, enabling automated defect screening for semiconductor manufacturing workflows.
+[![CI](https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/actions/workflows/ci.yml/badge.svg)](https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Model](https://img.shields.io/badge/model-ResNet--18%20%7C%20ONNX-orange)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-The project focuses on robustness, reproducibility, and deployability, including support for **ONNX export**.
+Wafer defect classification with a grayscale ResNet-18. Nine classes, a leakage-free train/validation/test split,
+an ONNX model you can run with three small dependencies, and a web app that runs the model **in your browser**.
 
----
+![Web app: the selected wafer map rendered on a 3D wafer](docs/web_hero.png)
 
-## Defect Classes
-The model predicts one of the following 9 classes:
+## Results (held-out test split)
 
-- Clean  
-- Shorts  
-- Opens  
-- Bridges  
-- Vias  
-- Scratches  
-- Cracks  
-- LER (Line Edge Roughness)  
-- Other  
+| Metric | Value |
+|---|---|
+| Accuracy | **97.96%** (1,176 images) |
+| Macro-F1 | 0.981 |
+| Weighted-F1 | 0.980 |
+| Validation accuracy / macro-F1 (model selection) | 97.45% / 0.966 |
 
----
+| Class | Precision | Recall | F1 | Test images |
+|---|---|---|---|---|
+| Bridges | 0.970 | 1.000 | 0.985 | 131 |
+| Clean | 0.971 | 1.000 | 0.985 | 133 |
+| Cracks | 0.975 | 0.994 | 0.984 | 155 |
+| LER | 0.996 | 0.991 | 0.993 | 225 |
+| Opens | 0.977 | 0.955 | 0.966 | 132 |
+| Other | 0.984 | 0.955 | 0.969 | 132 |
+| Scratches | 0.977 | 0.947 | 0.962 | 132 |
+| Shorts | 0.977 | 0.985 | 0.981 | 132 |
+| Vias | 1.000 | 1.000 | 1.000 | 4 |
 
-## Dataset (Phase-1)
+| Accuracy by source | Images | Accuracy |
+|---|---|---|
+| Roboflow wafer-map renderings (`MULTI_CLASS`) | 1,027 | 99.6% |
+| IESA challenge images | 29 | 100% |
+| WM-811K 32x32 wafer maps | 120 | **83.3%** |
 
-### Dataset Composition
-- Train: 4,384 images  
-- Validation: 1,096 images  
-- Test: 1,183 images  
+How to read these numbers:
 
-During training, a fixed fraction of the training data is reserved internally as a validation subset for early stopping and best-checkpoint selection. The Test split is held out and used only for final evaluation.
+- The test split was used once, after training finished; model selection used validation macro-F1 only.
+- The low-resolution WM-811K images are clearly harder than the Roboflow renderings. Most errors come from them.
+- *Vias* has 4 test images, so its perfect score carries almost no information. The macro-F1 is pulled up by it;
+  accuracy and weighted-F1 are the more reliable summaries.
+- Full metrics: [`reports/metrics_test.json`](reports/metrics_test.json),
+  [confusion matrix](reports/confusion_matrix_test.png), [training curves](reports/training_curves.png).
 
-### Folder Structure (Submission ZIP)
+### What changed from v1
 
-`edge_defect_phase1_dataset.zip`
+v1 reported 98.1% accuracy, but an [audit](reports/v1_audit.md) found two problems:
+
+1. **Shifted class names.** The model outputs classes in alphabetical (ImageFolder) order, but inference and the
+   metrics report named them with a different list, so predictions and the per-class table were mislabelled.
+2. **Train/test leakage.** Augmented copies of the same wafer appeared in both training and test data. On test
+   images whose wafer was genuinely unseen, v1 scored 96.9%.
+
+v2 uses one class list everywhere (guarded by a test), splits by original wafer so no copy crosses splits
+(`data/manifest.csv`, also tested), and retrains from ImageNet weights. Its 97.96% is measured on a split with
+no leakage at all.
+
+## Web app
+
+`web/` is a static site: pick a held-out example or drop an image, and the ONNX model runs locally through
+ONNX Runtime Web (WebAssembly). The selected wafer map is rendered onto a 3D wafer (three.js) with a thin-film
+iridescence shader and an amber "exposure" scan when a prediction completes. The model card section reads the
+real test metrics and draws the confusion matrix.
+
+| Prediction | Model card |
+|---|---|
+| ![Prediction panel](docs/web_prediction.png) | ![Model card](docs/web_model_card.png) |
+
+```bash
+python scripts/build_site.py              # assembles _site/ (web app + model + examples + metrics)
+python -m http.server -d _site 8000       # open http://localhost:8000
+```
+
+The **Web app (GitHub Pages)** workflow deploys `_site/` on every push to `main`. One-time setup: repository
+**Settings â†’ Pages â†’ Source: GitHub Actions**. A browser test (`tests/test_web.py`) checks that the web app's
+predictions match the Python predictor on every example.
+
+## Quick start (inference)
+
+```bash
+pip install -r requirements.txt            # onnxruntime, numpy, pillow
+python -m edgedefectnet.predict examples/*.png
+python -m edgedefectnet.predict my_wafer.png --top 3 --json
+```
+
 ```text
-+-- Train/
-¦   +-- Clean/
-¦   +-- Shorts/
-¦   +-- Opens/
-¦   +-- Bridges/
-¦   +-- Vias/
-¦   +-- Scratches/
-¦   +-- Cracks/
-¦   +-- LER/
-¦   +-- Other/
-+-- Validation/
-¦   +-- Clean/
-¦   +-- Shorts/
-¦   +-- Opens/
-¦   +-- Bridges/
-¦   +-- Vias/
-¦   +-- Scratches/
-¦   +-- Cracks/
-¦   +-- LER/
-¦   +-- Other/
-+-- Test/
-    +-- Clean/
-    +-- Shorts/
-    +-- Opens/
-    +-- Bridges/
-    +-- Vias/
-    +-- Scratches/
-    +-- Cracks/
-    +-- LER/
-    +-- Other/
-Each <class_name> corresponds to one of the 9 defect classes listed above.
+Bridges__MULTI_CLASS.png: Bridges (99.8%)  [next: Other 0.2%, LER 0.0%]
+Cracks__IESA.png: Cracks (100.0%)  [next: Bridges 0.0%, Opens 0.0%]
+Other__MULTI_CLASS.png: Other (99.0%)  [next: Bridges 1.0%, Cracks 0.0%]
+```
 
-Image Properties
-Image type: Grayscale wafer-edge or wafer-map images
+From Python:
 
-Format: .png (and similar lossless formats)
+```python
+from edgedefectnet.predict import Predictor
 
-Resolution: 224 × 224 (applied via preprocessing)
+pred = Predictor().predict("my_wafer.png")
+print(pred.label, pred.confidence, pred.probabilities)
+```
 
-Environment Setup
-Create and Activate Virtual Environment
-bash
-python -m venv venv
-venv\Scripts\activate    # Windows
-Install Dependencies
-Using requirements.txt:
+There is also a small Gradio demo: `pip install gradio && python app.py`.
 
-bash
-pip install -r requirements.txt
-Or install manually:
+## Classes and data
 
-bash
-pip install torch torchvision scikit-learn pillow onnx onnxscript
-Note: onnx and onnxscript are only required if ONNX export is needed.
+The nine classes come from the IESA challenge: Bridges, Clean, Cracks, LER, Opens, Other, Scratches, Shorts, Vias.
+Most images are WM-811K-style wafer maps whose spatial failure patterns were mapped onto these names (for
+example *Center* to *Shorts*, *Donut* to *Cracks*, *Edge-Ring* and *Edge-Loc* to *LER*). For those images the
+class names are **proxy labels**: the model recognises the spatial pattern, not the electrical defect. The full
+mapping, sources and rebuild instructions are in [`data/README.md`](data/README.md).
 
-Model and Training (Phase-1)
-Backbone: ResNet-18 (ImageNet pretrained, modified for 1-channel input)
+Images are not stored in Git. `data/manifest.csv` lists every image with its split, class, source and wafer group,
+and `scripts/build_dataset.py` rebuilds the dataset from the raw sources.
 
-Input size: 1 × 224 × 224 grayscale images
+## Training
 
-Output: 9-class linear classifier head
+```bash
+pip install -r requirements-train.txt
+# ImageNet-pretrained ResNet-18 in torchvision format (timm's ResNet-18 A1 weights)
+curl -L -o weights/resnet18.pth --create-dirs \
+  https://github.com/huggingface/pytorch-image-models/releases/download/v0.1-rsb-weights/resnet18_a1_0-d63eafa0.pth
 
-Loss function: Cross-Entropy
+python -m edgedefectnet.train --data dataset --imagenet-weights weights/resnet18.pth --out checkpoints --epochs 10
+python -m edgedefectnet.export --checkpoint checkpoints/best.pt --out models/edgedefectnet.onnx
+python -m edgedefectnet.evaluate --data dataset --split test --model models/edgedefectnet.onnx --out reports
+```
 
-Optimizer: Adam
+Setup used for the published model: 1-channel ResNet-18 (ImageNet filters averaged to grayscale), 224x224 input,
+AdamW (lr 3e-4, weight decay 1e-4) with cosine decay, batch 32, class-weighted cross-entropy (weights capped at
+10), light augmentation (rotation Â±10Â°, crop 90-100%, horizontal flip), seed 42, 10 epochs on CPU (about 8
+minutes per epoch). The best validation checkpoint was epoch 10. The run was interrupted once by a machine
+restart after epoch 2 and resumed from that checkpoint with a fresh optimizer state; `--resume` now saves full
+optimizer and scheduler state every epoch.
 
-Random seed: 42
+## Project layout
 
-Training platform: Windows 11, Python 3.11
+```text
+edgedefectnet/        package: classes, preprocessing, splits, model, data, train, evaluate, export, predict
+models/               edgedefectnet.onnx (single file, dynamic batch, opset 17)
+web/                  browser app (HTML/CSS/JS, self-hosted Archivo font)
+examples/             one held-out test image per class
+data/                 manifest.csv and dataset documentation
+reports/              test/validation metrics, confusion matrices, training history, v1 audit
+scripts/              build_dataset.py, build_site.py, plot_history.py
+tests/                classes and split leakage, inference, ONNX export parity, browser parity
+app.py                Gradio demo
+```
 
-Hardware: CPU-only training and inference
+## Development
 
-Training Command
-bash
-python train_phase1.py
-The training script uses the Train split and monitors performance on the Validation split (created from the training data) for early stopping and model selection.
+```bash
+pip install -r requirements-dev.txt
+pytest -q                     # torch and browser tests are skipped if those packages are missing
+ruff check . && ruff format --check .
+```
 
-Best checkpoint is saved at:
+## License
 
-text
-checkpoints/phase1_best_resnet18.pt
-Inference (Single Image)
-Run inference on a single image:
-
-bash
-python -m scripts.infer_phase1 --image path\to\image.png
-Example:
-
-bash
-python -m scripts.infer_phase1 --image .\dataset\Test\Shorts\MULTI_CLASS__image_Center_12015_png_jpg.rf.88f63a2bceb47b58fb93b4d118ee3738.png
-This performs:
-
-Model loading
-
-Training-consistent preprocessing
-
-Per-class probability estimation
-
-Final predicted class output
-
-Export to ONNX
-Export the trained PyTorch model to ONNX:
-
-bash
-python export_onnx.py
-Export Details
-Output file: edge_defect_phase1.onnx
-
-Opset version: 18
-
-Approximate size: ~0.08 MB
-
-The script rebuilds the model using build_model from scripts.infer_phase1 and loads the trained checkpoint.
-
-Results (Test Set)
-All metrics below are computed exclusively on the held-out Test set (dataset/Test), which is never used during training or validation.
-
-Evaluation performed on the held-out test set (dataset/Test).
-
-Accuracy: 0.9814
-
-Macro Precision: 0.9474
-
-Macro Recall: 0.9824
-
-Confusion Matrix
-text
-[[132   0   0   0   0   0   0   0   0]
- [  0 130   0   1   0   0   1   0   2]
- [  0   0 153   0   1   2   0   0   0]
- [  0   0   0 224   1   0   0   0   0]
- [  0   0   1   1 128   0   2   1   0]
- [  3   0   0   1   0 129   0   0   0]
- [  0   2   0   0   1   0 130   0   0]
- [  0   0   0   0   0   0   2 131   0]
- [  0   0   0   0   0   0   0   0   4]]
-Classification Report
-text
-              precision    recall  f1-score   support
-Clean           0.98      1.00      0.99       132
-Shorts          0.98      0.97      0.98       134
-Opens           0.99      0.98      0.99       156
-Bridges         0.99      1.00      0.99       225
-Vias            0.98      0.96      0.97       133
-Scratches       0.98      0.97      0.98       133
-Cracks          0.96      0.98      0.97       133
-LER             0.99      0.98      0.99       133
-Other           0.67      1.00      0.80         4
-
-Accuracy                              0.98      1183
-Macro Avg        0.95      0.98      0.96      1183
-Weighted Avg     0.98      0.98      0.98      1183
-Repository Structure
-text
-EdgeDefectNet/
-+- scripts/
-|  +- infer_phase1.py
-|  +- config_phase1.py
-|  +- dataloaders_phase1.py
-+- checkpoints/
-|  +- phase1_best_resnet18.pt
-|  +- phase1_class_names.py
-+- export_onnx.py
-+- compute_phase1_metrics.py
-+- dataset/                  # Folder structure tracked via .gitkeep, images ignored
-+- edge_defect_phase1_dataset.zip
-+- README.md
-+- requirements.txt
-Note: Large datasets are not tracked in Git. Use .gitignore for dataset images.
-
-Reproducing Phase-1 Results
-bash
-python train_phase1.py
-python compute_phase1_metrics.py
-python export_onnx.py
-python -m scripts.infer_phase1 --image path\to\test_image.png
-License
-MIT License – see LICENSE file for details.
-
-Contact
-Author: Sandeep Srinivasan
-Email: sndpsrinivasan@gmail.com
-GitHub: https://github.com/Sandeepsrinivasan-14/EdgeDefectNet
+[MIT](LICENSE) Â© Sandeep Srinivasan. The Archivo font is under the SIL Open Font License (`web/fonts/OFL-Archivo.txt`).
+Check each dataset source's licence before redistributing images.
