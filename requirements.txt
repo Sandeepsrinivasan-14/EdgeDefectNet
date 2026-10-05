@@ -1,0 +1,4 @@
+# Inference (ONNX): enough to run predictions, the CLI and the tests
+onnxruntime>=1.18
+numpy>=1.26
+pillow>=10.0

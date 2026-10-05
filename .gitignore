@@ -1,9 +1,19 @@
-dataset/*
-!dataset/**/.gitkeep
-edge_defect_phase1_dataset.zip
-__pycache__/
+# Data and training artefacts (see data/README.md for how to build the dataset)
+dataset/
+raw/
+checkpoints/
+weights/
 *.pt
 *.pth
 *.zip
+*.npz
 
-data/mixedtype_wafer/Wafer_Map_Datasets.npz
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+_site/

@@ -1,0 +1,190 @@
+{
+  "model": "edgedefectnet.onnx",
+  "split": "test",
+  "n": 1176,
+  "accuracy": 0.9795918367346939,
+  "macro_f1": 0.9805455759388089,
+  "weighted_f1": 0.9795064404826316,
+  "per_class": {
+    "Bridges": {
+      "precision": 0.9704,
+      "recall": 1.0,
+      "f1-score": 0.985,
+      "support": 131.0
+    },
+    "Clean": {
+      "precision": 0.9708,
+      "recall": 1.0,
+      "f1-score": 0.9852,
+      "support": 133.0
+    },
+    "Cracks": {
+      "precision": 0.9747,
+      "recall": 0.9935,
+      "f1-score": 0.984,
+      "support": 155.0
+    },
+    "LER": {
+      "precision": 0.9955,
+      "recall": 0.9911,
+      "f1-score": 0.9933,
+      "support": 225.0
+    },
+    "Opens": {
+      "precision": 0.9767,
+      "recall": 0.9545,
+      "f1-score": 0.9655,
+      "support": 132.0
+    },
+    "Other": {
+      "precision": 0.9844,
+      "recall": 0.9545,
+      "f1-score": 0.9692,
+      "support": 132.0
+    },
+    "Scratches": {
+      "precision": 0.9766,
+      "recall": 0.947,
+      "f1-score": 0.9615,
+      "support": 132.0
+    },
+    "Shorts": {
+      "precision": 0.9774,
+      "recall": 0.9848,
+      "f1-score": 0.9811,
+      "support": 132.0
+    },
+    "Vias": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    }
+  },
+  "per_source_accuracy": {
+    "IESA": {
+      "n": 29,
+      "accuracy": 1.0
+    },
+    "MULTI_CLASS": {
+      "n": 1027,
+      "accuracy": 0.9961
+    },
+    "WM811K_IMG": {
+      "n": 120,
+      "accuracy": 0.8333
+    }
+  },
+  "confusion_matrix": [
+    [
+      131,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      133,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      154,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      223,
+      0,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      126,
+      0,
+      2,
+      2,
+      0
+    ],
+    [
+      4,
+      0,
+      2,
+      0,
+      0,
+      126,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      3,
+      0,
+      1,
+      2,
+      0,
+      125,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0,
+      130,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4
+    ]
+  ],
+  "labels": [
+    "Bridges",
+    "Clean",
+    "Cracks",
+    "LER",
+    "Opens",
+    "Other",
+    "Scratches",
+    "Shorts",
+    "Vias"
+  ]
+}

@@ -1,0 +1,7 @@
+# Training, evaluation and export
+-r requirements.txt
+torch>=2.3
+torchvision>=0.18
+scikit-learn>=1.4
+matplotlib>=3.8
+onnx>=1.16
