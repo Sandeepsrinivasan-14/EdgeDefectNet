@@ -9,11 +9,12 @@ import sys
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
 
 def main(src: str, dst: str) -> None:
-    hist = json.load(open(src))
+    with open(src, encoding="utf-8") as fh:
+        hist = json.load(fh)
     ep = [h["epoch"] for h in hist]
     fig, (a, b) = plt.subplots(1, 2, figsize=(10, 3.8), dpi=150)
     a.plot(ep, [h["train_loss"] for h in hist], marker="o", label="train")

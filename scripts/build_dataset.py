@@ -26,8 +26,8 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from edgedefectnet.classes import CLASS_NAMES  # noqa: E402
-from edgedefectnet.splits import SPLITS, Item, assign_splits, group_id, read_manifest, write_manifest  # noqa: E402
+from edgedefectnet.classes import CLASS_NAMES
+from edgedefectnet.splits import SPLITS, Item, assign_splits, group_id, read_manifest, write_manifest
 
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp"}
 IMG_SIZE = (224, 224)
@@ -48,7 +48,7 @@ WM_PATTERN_TO_CLASS = {
 }
 
 
-def _images(root: Path):
+def _images(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in IMG_EXTS)
 
 
@@ -73,9 +73,9 @@ def collect_raw(iesa: Path | None, wm811k: Path | None, multiclass: Path | None)
     for root, source in ((wm811k, "WM811K_IMG"), (multiclass, "MULTI_CLASS")):
         if root:
             for p in _images(root):
-                cls = _wm_class(p.parent.name)
-                if cls:
-                    items.append((p, cls, source))
+                wm_cls = _wm_class(p.parent.name)
+                if wm_cls:
+                    items.append((p, wm_cls, source))
     return items
 
 
@@ -86,7 +86,7 @@ def out_name(src: Path, source: str) -> str:
 def save_processed(src: Path, dst: Path) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(src) as img:
-        img.convert("L").resize(IMG_SIZE, Image.BILINEAR).save(dst)
+        img.convert("L").resize(IMG_SIZE, Image.Resampling.BILINEAR).save(dst)
 
 
 def main() -> None:

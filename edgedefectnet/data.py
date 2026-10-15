@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets
 from torchvision import transforms as T
 
@@ -33,7 +33,7 @@ def image_folder(root: str | Path, split: str, train: bool = False) -> datasets.
     return ds
 
 
-def make_loader(ds, batch_size: int, shuffle: bool, workers: int) -> DataLoader:
+def make_loader(ds: Dataset, batch_size: int, shuffle: bool, workers: int) -> DataLoader:
     return DataLoader(
         ds,
         batch_size=batch_size,

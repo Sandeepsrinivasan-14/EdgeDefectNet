@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_class_names_are_in_imagefolder_order():
     # torchvision.datasets.ImageFolder assigns labels in sorted folder order; the model's logits follow it.
-    assert CLASS_NAMES == sorted(CLASS_NAMES)
+    assert sorted(CLASS_NAMES) == CLASS_NAMES
     assert len(CLASS_NAMES) == 9
 
 

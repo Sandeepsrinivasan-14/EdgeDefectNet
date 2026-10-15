@@ -1,0 +1,107 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "edgedefectnet"
+dynamic = ["version"]
+description = "Wafer edge defect classification with a grayscale ResNet-18, exported to ONNX"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Sandeep Srinivasan" }]
+keywords = ["semiconductor", "wafer", "defect-classification", "resnet", "onnx", "computer-vision"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Typing :: Typed",
+]
+# Inference only: ONNX Runtime, NumPy, Pillow.
+dependencies = [
+    "onnxruntime>=1.18",
+    "numpy>=1.26",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+demo = ["gradio>=4.44"]
+train = [
+    "torch>=2.3",
+    "torchvision>=0.18",
+    "scikit-learn>=1.4",
+    "matplotlib>=3.8",
+    "onnx>=1.16",
+]
+dev = [
+    "scikit-learn>=1.4",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "build>=1.2",
+    "twine>=5",
+]
+
+[project.scripts]
+edgedefectnet-predict = "edgedefectnet.predict:main"
+
+[project.urls]
+Homepage = "https://github.com/Sandeepsrinivasan-14/EdgeDefectNet"
+Issues = "https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/issues"
+Changelog = "https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "edgedefectnet/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["edgedefectnet"]
+
+[tool.hatch.build.targets.sdist]
+# Code, docs and the small metadata files only; the 45 MB model and the images are not shipped to PyPI.
+include = [
+    "/edgedefectnet",
+    "/tests",
+    "/scripts",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = ["error::DeprecationWarning:edgedefectnet.*"]
+
+[tool.coverage.run]
+source = ["edgedefectnet"]
+omit = [
+    # training-side modules need PyTorch and a dataset; they are exercised by tests/test_model_torch.py in CI
+    "edgedefectnet/train.py",
+    "edgedefectnet/data.py",
+    "edgedefectnet/evaluate.py",
+    "edgedefectnet/export.py",
+    "edgedefectnet/model.py",
+]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+
+[tool.mypy]
+python_version = "3.10"
+files = ["edgedefectnet", "app.py", "scripts"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
