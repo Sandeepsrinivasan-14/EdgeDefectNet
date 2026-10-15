@@ -35,7 +35,7 @@ def group_id(filename: str) -> tuple[str, str]:
     return source, f"{source}:{RF_SUFFIX.sub('', rest)}"
 
 
-def assign_splits(items: list[Item], fractions=(0.70, 0.15, 0.15), seed: int = 42) -> list[Item]:
+def assign_splits(items: list[Item], fractions: tuple[float, float, float] = (0.70, 0.15, 0.15), seed: int = 42) -> list[Item]:
     """Stratified (per class) group split: whole groups go to one split, sized by image count."""
     by_class: dict[str, dict[str, list[Item]]] = defaultdict(lambda: defaultdict(list))
     for it in items:

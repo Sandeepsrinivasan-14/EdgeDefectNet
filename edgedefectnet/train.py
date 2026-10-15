@@ -16,6 +16,7 @@ import numpy as np
 import torch
 from sklearn.metrics import f1_score
 from torch import nn
+from torch.utils.data import DataLoader
 
 from .data import class_weights, image_folder, make_loader
 from .model import build_model
@@ -28,7 +29,7 @@ def seed_everything(seed: int) -> None:
 
 
 @torch.no_grad()
-def predict(model: nn.Module, loader, device) -> tuple[np.ndarray, np.ndarray, float]:
+def predict(model: nn.Module, loader: DataLoader, device: torch.device) -> tuple[np.ndarray, np.ndarray, float]:
     model.eval()
     ys, ps, loss_sum, n = [], [], 0.0, 0
     criterion = nn.CrossEntropyLoss(reduction="sum")

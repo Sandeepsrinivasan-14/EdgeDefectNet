@@ -40,7 +40,7 @@ def evaluate(model_path: Path, root: Path, split: str) -> dict:
     return {
         "model": model_path.name,
         "split": split,
-        "n": int(len(items)),
+        "n": len(items),
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro")),
         "weighted_f1": float(f1_score(y_true, y_pred, average="weighted")),
