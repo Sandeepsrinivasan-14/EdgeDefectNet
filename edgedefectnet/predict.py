@@ -137,11 +137,11 @@ class Predictor:
         return np.asarray(out, dtype=np.float32)
 
     def predict_index(self, image: ImageInput) -> int:
-        return int(self.logits(image).argmax())
+        return int(np.argmax(self.logits(image)))
 
     def predict(self, image: ImageInput) -> Prediction:
         probs = softmax(self.logits(image))
-        idx = int(probs.argmax())
+        idx = int(np.argmax(probs))
         return Prediction(CLASS_NAMES[idx], float(probs[idx]), {c: float(p) for c, p in zip(CLASS_NAMES, probs)})
 
 
