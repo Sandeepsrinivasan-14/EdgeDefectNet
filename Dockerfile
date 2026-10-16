@@ -3,7 +3,7 @@
 #   docker build -t edgedefectnet .
 #   docker run --rm -p 7860:7860 edgedefectnet            # http://localhost:7860
 #   docker run --rm -v "$PWD/wafers:/data:ro" edgedefectnet python -m edgedefectnet.predict /data/wafer.png
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
