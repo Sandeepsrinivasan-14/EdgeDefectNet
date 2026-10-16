@@ -4,9 +4,13 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Model](https://img.shields.io/badge/model-ResNet--18%20%7C%20ONNX-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-GitHub%20Pages-blue)](https://sandeepsrinivasan-14.github.io/EdgeDefectNet/)
 
 Wafer defect classification with a grayscale ResNet-18. Nine classes, a leakage-free train/validation/test split,
 an ONNX model you can run with three small dependencies, and a web app that runs the model **in your browser**.
+
+Documentation: [Model card](MODEL_CARD.md) | [Changelog](CHANGELOG.md) | [Contributing](CONTRIBUTING.md) |
+[Security policy](SECURITY.md) | [v1 audit](reports/v1_audit.md)
 
 ![Web app: the selected wafer map rendered on a 3D wafer](docs/web_hero.png)
 
@@ -75,17 +79,23 @@ python scripts/build_site.py              # assembles _site/ (web app + model + 
 python -m http.server -d _site 8000       # open http://localhost:8000
 ```
 
-The **Web app (GitHub Pages)** workflow deploys `_site/` on every push to `main`. One-time setup: repository
-**Settings → Pages → Source: GitHub Actions**. A browser test (`tests/test_web.py`) checks that the web app's
-predictions match the Python predictor on every example.
+The **Web app (GitHub Pages)** workflow builds `_site/` on every push and pull request and deploys it from `main`.
+One-time setup: repository **Settings → Pages → Build and deployment → Source: GitHub Actions** (or
+`gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`). If Pages is not enabled the workflow still
+builds the site, then reports a warning with this instruction instead of failing with a 404. A browser test
+(`tests/test_web.py`) checks that the web app's predictions match the Python predictor on every example.
 
 ## Quick start (inference)
 
 ```bash
-pip install -r requirements.txt            # onnxruntime, numpy, pillow
-python -m edgedefectnet.predict examples/*.png
-python -m edgedefectnet.predict my_wafer.png --top 3 --json
+git clone https://github.com/Sandeepsrinivasan-14/EdgeDefectNet && cd EdgeDefectNet
+pip install .                              # onnxruntime, numpy, pillow (or: pip install -r requirements.txt)
+edgedefectnet-predict examples/*.png       # same as python -m edgedefectnet.predict
+edgedefectnet-predict my_wafer.png --top 3 --json
 ```
+
+The CLI keeps going past unreadable images and exits with status 1 if any image failed and 2 if the model could not
+be loaded. `--verify` checks the model's SHA-256 first.
 
 ```text
 Bridges__MULTI_CLASS.png: Bridges (99.8%)  [next: Other 0.2%, LER 0.0%]
@@ -102,7 +112,30 @@ pred = Predictor().predict("my_wafer.png")
 print(pred.label, pred.confidence, pred.probabilities)
 ```
 
-There is also a small Gradio demo: `pip install gradio && python app.py`.
+Errors are explicit: `FileNotFoundError` for a missing file, `InvalidImageError` (a `ValueError`) for empty,
+undecodable, oversized (over 25 MB or 64 megapixels) or tiny (under 8 px) images, and `ModelError` for a corrupt,
+empty or Git-LFS-pointer model file or a failed checksum.
+
+### Model file
+
+The wheel contains code only; the 44.7 MB model lives in `models/edgedefectnet.onnx` in a source checkout. Elsewhere
+download `edgedefectnet.onnx` and its `.sha256` (from `models/` in the repository, or from a
+[GitHub Release](https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/releases) once one has been published) and point
+`EDGEDEFECTNET_MODEL` at it (or pass `model_path=` / `--model`). Why the model is stored in Git rather than Git LFS,
+and how to ship the next one, is explained in [CONTRIBUTING.md](CONTRIBUTING.md#how-model-files-are-stored-and-why).
+
+### Gradio demo and Docker
+
+```bash
+pip install ".[demo]" && python app.py                  # http://127.0.0.1:7860
+docker build -t edgedefectnet .
+docker run --rm -p 7860:7860 edgedefectnet              # http://localhost:7860
+docker run --rm -v "$PWD:/data:ro" edgedefectnet python -m edgedefectnet.predict /data/my_wafer.png
+```
+
+The image is based on `python:3.12-slim`, runs as an unprivileged user, includes a health check, and has no
+authentication: put it behind a reverse proxy before exposing it beyond localhost. `HOST` and `PORT` select the
+bind address.
 
 ## Classes and data
 
@@ -147,15 +180,22 @@ reports/              test/validation metrics, confusion matrices, training hist
 scripts/              build_dataset.py, build_site.py, plot_history.py
 tests/                classes and split leakage, inference, ONNX export parity, browser parity
 app.py                Gradio demo
+pyproject.toml        packaging, pytest, coverage and mypy configuration
+Dockerfile            container for the Gradio demo and CLI
+MODEL_CARD.md         intended use, data, metrics, limitations
 ```
 
 ## Development
 
 ```bash
-pip install -r requirements-dev.txt
-pytest -q                     # torch and browser tests are skipped if those packages are missing
-ruff check . && ruff format --check .
+pip install -e ".[dev,demo]"  # add ,train for the PyTorch tests
+pytest --cov                  # torch, browser and demo tests are skipped if those packages are missing
+ruff check . && ruff format --check . && mypy
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint and type checks, a test matrix (Linux with Python 3.10-3.13, plus macOS and
+Windows), the browser parity test, the PyTorch tests, a package build with a clean-install check and a Docker build.
+CodeQL and Dependabot are enabled; tagging `vX.Y.Z` publishes a release with the wheel, the model and its checksum.
 
 ## License
 
