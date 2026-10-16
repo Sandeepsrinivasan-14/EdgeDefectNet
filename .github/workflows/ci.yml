@@ -4,34 +4,165 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
-  inference:
+  lint:
+    name: Lint and type check
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.12"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-      - run: pip install -r requirements-dev.txt playwright
-      - run: python -m playwright install --with-deps chromium
-      - run: ruff check . && ruff format --check .
-      - run: python -m pytest -q
-      - name: CLI smoke test
-        run: python -m edgedefectnet.predict examples/*.png
-
-  training-code:
-    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy
+
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev,demo]"
+      - name: Run tests with coverage
+        run: pytest -q --cov --cov-report=term-missing --cov-report=xml
+      - name: CLI smoke test
+        shell: bash
+        run: |
+          edgedefectnet-predict --version
+          edgedefectnet-predict --verify examples/*.png
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  web:
+    name: Browser parity test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]" playwright
+      - run: python -m playwright install --with-deps chromium
+      - run: pytest -q tests/test_web.py -p no:cacheprovider
+
+  training-code:
+    name: Training code (PyTorch CPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-      - run: pip install -r requirements-train.txt pytest
-      - run: python -m pytest -q tests/test_model_torch.py
+      - run: pip install -e ".[train,dev]"
+      - run: pytest -q tests/test_model_torch.py
+
+  build:
+    name: Build and install the package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - name: Install the wheel into a clean environment and run it
+        run: |
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install dist/*.whl
+          cd "$(mktemp -d)"
+          /tmp/wheel-env/bin/edgedefectnet-predict --version
+          /tmp/wheel-env/bin/python -c "import edgedefectnet; print(edgedefectnet.__version__, edgedefectnet.NUM_CLASSES)"
+          # the wheel ships code only, so a missing model must be a clear error rather than a traceback
+          if /tmp/wheel-env/bin/edgedefectnet-predict "$GITHUB_WORKSPACE/examples/Clean__MULTI_CLASS.png" 2> err.txt; then exit 1; fi
+          grep -q "model not found" err.txt
+          EDGEDEFECTNET_MODEL="$GITHUB_WORKSPACE/models/edgedefectnet.onnx" \
+            /tmp/wheel-env/bin/edgedefectnet-predict --verify "$GITHUB_WORKSPACE/examples/Clean__MULTI_CLASS.png"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: edgedefectnet:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: CLI works inside the image
+        run: docker run --rm edgedefectnet:ci python -m edgedefectnet.predict --verify examples/Clean__MULTI_CLASS.png
+      - name: Demo starts and passes its health check
+        run: |
+          docker run -d --name edn -p 7860:7860 edgedefectnet:ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:7860/ > /dev/null; then echo "demo is up after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          docker logs edn
+          exit 1
+
+  ci-ok:
+    name: CI passed
+    if: always()
+    needs: [lint, test, web, training-code, build, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job did not succeed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1 ;; esac
