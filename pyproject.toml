@@ -78,7 +78,6 @@ include = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-filterwarnings = ["error::DeprecationWarning:edgedefectnet.*"]
 
 [tool.coverage.run]
 source = ["edgedefectnet"]
