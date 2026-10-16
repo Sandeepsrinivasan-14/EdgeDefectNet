@@ -17,3 +17,11 @@ venv/
 .ruff_cache/
 *.egg-info/
 _site/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+dist/
+build/
+.env

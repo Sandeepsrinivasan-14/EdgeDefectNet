@@ -19,7 +19,7 @@ def export(checkpoint: Path, out: Path, opset: int = 17) -> float:
     out.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
         model,
-        dummy,
+        (dummy,),
         str(out),
         input_names=["input"],
         output_names=["logits"],

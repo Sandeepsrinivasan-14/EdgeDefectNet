@@ -1,6 +1,7 @@
 """ResNet-18 adapted to single-channel (grayscale) 224x224 input."""
 
 from pathlib import Path
+from typing import cast
 
 import torch
 from torch import nn
@@ -25,7 +26,7 @@ def build_model(num_classes: int = NUM_CLASSES, imagenet_weights: str | Path | N
         gray_conv.weight.copy_(rgb_conv.weight.mean(dim=1, keepdim=True))
     model.conv1 = gray_conv
     model.fc = nn.Linear(model.fc.in_features, num_classes)
-    return model
+    return cast(nn.Module, model)
 
 
 def load_checkpoint(path: str | Path, device: str | torch.device = "cpu") -> nn.Module:
@@ -33,4 +34,6 @@ def load_checkpoint(path: str | Path, device: str | torch.device = "cpu") -> nn.
     state = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
     model = build_model()
     model.load_state_dict(state)
-    return model.to(device).eval()
+    model.to(device)
+    model.eval()
+    return model
