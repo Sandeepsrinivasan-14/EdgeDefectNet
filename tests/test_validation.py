@@ -11,7 +11,14 @@ from PIL import Image
 from edgedefectnet import predict as predict_mod
 from edgedefectnet.classes import CLASS_NAMES
 from edgedefectnet.predict import ModelError, Predictor, expected_sha256, sha256_file, verify_model
-from edgedefectnet.preprocessing import MAX_PIXELS, InvalidImageError, load_grayscale, to_input_array, validate_image
+from edgedefectnet.preprocessing import (
+    MAX_PIXELS,
+    InvalidImageError,
+    load_grayscale,
+    resolve_image_path,
+    to_input_array,
+    validate_image,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = ROOT / "models" / "edgedefectnet.onnx"
@@ -183,3 +190,93 @@ def test_cli_version(capsys):
         predict_mod.main(["--version"])
     assert exc.value.code == 0
     assert "edgedefectnet" in capsys.readouterr().out
+
+
+# ---- path confinement (allowed_root) ----
+
+
+@pytest.fixture
+def jail(tmp_path):
+    """A directory with one image inside it and one secret image next to it."""
+    root = tmp_path / "uploads"
+    root.mkdir()
+    (root / "ok.png").write_bytes(EXAMPLE.read_bytes())
+    (tmp_path / "secret.png").write_bytes(EXAMPLE.read_bytes())
+    return root
+
+
+def test_relative_and_absolute_paths_inside_root_are_accepted(jail):
+    assert resolve_image_path("ok.png", jail) == (jail / "ok.png").resolve()
+    assert resolve_image_path(jail / "ok.png", jail) == (jail / "ok.png").resolve()
+    assert load_grayscale("ok.png", jail).mode == "L"
+
+
+@pytest.mark.parametrize("evil", ["../secret.png", "sub/../../secret.png", "./../secret.png"])
+def test_dot_dot_traversal_is_rejected(jail, evil):
+    with pytest.raises(InvalidImageError, match="outside the allowed directory"):
+        resolve_image_path(evil, jail)
+
+
+def test_absolute_path_outside_root_is_rejected(jail):
+    with pytest.raises(InvalidImageError, match="outside the allowed directory"):
+        resolve_image_path(jail.parent / "secret.png", jail)
+
+
+def test_sibling_directory_with_common_prefix_is_rejected(jail):
+    sibling = jail.parent / "uploads-evil"
+    sibling.mkdir()
+    (sibling / "x.png").write_bytes(EXAMPLE.read_bytes())
+    with pytest.raises(InvalidImageError, match="outside the allowed directory"):
+        resolve_image_path(sibling / "x.png", jail)
+
+
+def test_symlink_escaping_the_root_is_rejected(jail):
+    link = jail / "link.png"
+    try:
+        link.symlink_to(jail.parent / "secret.png")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are not available on this platform or account")
+    with pytest.raises(InvalidImageError, match="outside the allowed directory"):
+        resolve_image_path("link.png", jail)
+
+
+def test_symlink_inside_the_root_is_followed(jail):
+    link = jail / "alias.png"
+    try:
+        link.symlink_to(jail / "ok.png")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are not available on this platform or account")
+    assert resolve_image_path("alias.png", jail) == (jail / "ok.png").resolve()
+
+
+def test_nul_byte_in_path_is_rejected(jail):
+    with pytest.raises(InvalidImageError, match="NUL"):
+        resolve_image_path("ok.png" + chr(0) + ".txt", jail)
+
+
+def test_missing_file_and_directories_inside_root(jail):
+    (jail / "dir").mkdir()
+    with pytest.raises(FileNotFoundError):
+        resolve_image_path("missing.png", jail)
+    with pytest.raises(FileNotFoundError):
+        resolve_image_path("dir", jail)
+
+
+def test_predictor_enforces_allowed_root(jail):
+    confined = Predictor(MODEL, allowed_root=jail)
+    assert confined.predict("ok.png").label in CLASS_NAMES
+    with pytest.raises(InvalidImageError, match="outside"):
+        confined.predict("../secret.png")
+
+
+def test_predict_image_takes_pil_only(predictor):
+    assert predictor.predict_image(Image.open(EXAMPLE)).label == predictor.predict(EXAMPLE).label
+    with pytest.raises(TypeError):
+        predictor.predict_image(str(EXAMPLE))  # type: ignore[arg-type]
+
+
+def test_cli_root_flag_confines_paths(capsys, jail):
+    code = predict_mod.main([str(jail.parent / "secret.png"), "--root", str(jail), "--json"])
+    assert code == 1
+    assert "outside the allowed directory" in capsys.readouterr().out
+    assert predict_mod.main(["ok.png", "--root", str(jail)]) == 0
