@@ -12,7 +12,7 @@ an ONNX model you can run with three small dependencies, and a web app that runs
 Documentation: [Model card](MODEL_CARD.md) | [Changelog](CHANGELOG.md) | [Contributing](CONTRIBUTING.md) |
 [Security policy](SECURITY.md) | [v1 audit](reports/v1_audit.md)
 
-![Web app: the selected wafer map rendered on a 3D wafer](docs/web_hero.png)
+![Web app: the selected wafer map on an interactive 3D wafer with one edge arc per class](docs/web_hero.png)
 
 ## Results (held-out test split)
 
@@ -65,10 +65,16 @@ no leakage at all.
 
 ## Web app
 
-`web/` is a static site: pick a held-out example or drop an image, and the ONNX model runs locally through
-ONNX Runtime Web (WebAssembly). The selected wafer map is rendered onto a 3D wafer (three.js) with a thin-film
-iridescence shader and an amber "exposure" scan when a prediction completes. The model card section reads the
-real test metrics and draws the confusion matrix.
+`web/` is a static site with a glassmorphism UI (dark and light themes, responsive, keyboard accessible). Drop an image
+(anywhere on the page), paste one, or pick a held-out example, and the ONNX model runs locally through ONNX Runtime
+Web (WebAssembly). Results show an animated confidence gauge, ranked probability bars and an explainer for the
+predicted class; the model card section reads the real test metrics and draws the confusion matrix.
+
+The selected image is mapped onto an interactive 3D wafer (three.js: drag or use the arrow keys to rotate). Its rim
+carries nine coloured arcs, one per class, whose brightness follows the model's probabilities. The arcs are an index
+of the classes, not a defect locator. three.js loads lazily, respects `prefers-reduced-motion`, and falls back to a 2D
+canvas when WebGL is unavailable. three.js and ONNX Runtime Web are loaded from pinned CDN versions with
+Subresource Integrity hashes; the model, images and metrics are self-hosted.
 
 | Prediction | Model card |
 |---|---|
@@ -133,6 +139,11 @@ docker run --rm -p 7860:7860 edgedefectnet              # http://localhost:7860
 docker run --rm -v "$PWD:/data:ro" edgedefectnet python -m edgedefectnet.predict /data/my_wafer.png
 ```
 
+The demo (`app.py`, styled by `app.css`) shows the same gauge, bars and class explainers
+(Gradio 6); it classifies in-memory images only, so uploads never reach the file system.
+
+![Gradio demo](docs/gradio_demo.png)
+
 The image is based on `python:3.12-slim`, runs as an unprivileged user, includes a health check, and has no
 authentication: put it behind a reverse proxy before exposing it beyond localhost. `HOST` and `PORT` select the
 bind address.
@@ -171,15 +182,15 @@ optimizer and scheduler state every epoch.
 ## Project layout
 
 ```text
-edgedefectnet/        package: classes, preprocessing, splits, model, data, train, evaluate, export, predict
+edgedefectnet/        package: classes (names + descriptions), preprocessing, splits, model, data, train, evaluate, export, predict
 models/               edgedefectnet.onnx (single file, dynamic batch, opset 17)
-web/                  browser app (HTML/CSS/JS, self-hosted Archivo font)
+web/                  browser app (index.html, style.css, app.js, inference.js, wafer3d.js, self-hosted Archivo font)
 examples/             one held-out test image per class
 data/                 manifest.csv and dataset documentation
 reports/              test/validation metrics, confusion matrices, training history, v1 audit
 scripts/              build_dataset.py, build_site.py, plot_history.py
 tests/                classes and split leakage, inference, ONNX export parity, browser parity
-app.py                Gradio demo
+app.py, app.css       Gradio demo and its stylesheet
 pyproject.toml        packaging, pytest, coverage and mypy configuration
 Dockerfile            container for the Gradio demo and CLI
 MODEL_CARD.md         intended use, data, metrics, limitations
