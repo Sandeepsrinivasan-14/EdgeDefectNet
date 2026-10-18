@@ -15,6 +15,7 @@ on:
     paths:
       - "web/**"
       - "scripts/build_site.py"
+      - "edgedefectnet/classes.py"
       - "models/**"
       - "examples/**"
       - "reports/metrics_test.json"
@@ -46,7 +47,7 @@ jobs:
         run: python scripts/build_site.py _site
       - name: Check the site is complete
         run: |
-          for f in index.html app.js style.css model.onnx metrics.json examples/index.json; do
+          for f in index.html app.js inference.js wafer3d.js style.css model.onnx metrics.json classes.json examples/index.json; do
             test -s "_site/$f" || { echo "::error::_site/$f is missing or empty"; exit 1; }
           done
           du -sh _site
