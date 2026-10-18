@@ -18,7 +18,7 @@ COPY pyproject.toml README.md LICENSE ./
 COPY edgedefectnet ./edgedefectnet
 RUN pip install ".[demo]"
 
-COPY app.py ./
+COPY app.py app.css ./
 COPY models ./models
 COPY examples ./examples
 
