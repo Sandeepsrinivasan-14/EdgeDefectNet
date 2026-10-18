@@ -1,88 +1,193 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EdgeDefectNet: wafer defect classifier</title>
-  <meta name="description" content="Classify wafer maps into 9 defect classes with a grayscale ResNet-18, running entirely in your browser.">
+  <meta name="description" content="Classify wafer maps into 9 defect classes with a grayscale ResNet-18 that runs entirely in your browser. No upload, no server.">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0b0a14">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="EdgeDefectNet: wafer defect classifier">
+  <meta property="og:description" content="A ResNet-18 that sorts wafer images into nine defect classes, running on-device with ONNX Runtime Web.">
+  <meta name="twitter:card" content="summary">
   <link rel="preload" href="fonts/archivo-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23FFC53D'/%3E%3Cpath d='M9 26h14' stroke='%2312101C' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238b7bff'/%3E%3Cstop offset='1' stop-color='%233de0ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23ffc53d'/%3E%3C/svg%3E">
+  <script>
+    /* Set the theme before first paint so there is no flash. Falls back to the OS preference. */
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem("edn-theme"); } catch (e) { /* storage blocked */ }
+      if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
 </head>
 <body>
-  <div class="backdrop" aria-hidden="true"></div>
+  <a class="skip" href="#try">Skip to the classifier</a>
 
-  <header class="nav">
-    <a class="brand" href="#top">EdgeDefectNet</a>
-    <nav>
-      <a href="#model">Model card</a>
-      <a href="https://github.com/Sandeepsrinivasan-14/EdgeDefectNet">Source on GitHub</a>
+  <div class="bg" aria-hidden="true">
+    <i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="bg-grid"></i>
+  </div>
+
+  <div class="dropveil" id="veil" aria-hidden="true"><div class="veil-card">Drop the image to classify it</div></div>
+
+  <header class="nav glass">
+    <a class="brand" href="#top" aria-label="EdgeDefectNet, back to top">
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="url(#brandGrad)" stroke-width="4"/><circle cx="16" cy="16" r="5" fill="#ffc53d"/><defs><linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#3de0ff"/></linearGradient></defs></svg>
+      EdgeDefectNet
+    </a>
+    <nav aria-label="Sections">
+      <a href="#try">Classify</a>
+      <a href="#classes">Classes</a>
+      <a href="#model">Model</a>
+      <a href="https://github.com/Sandeepsrinivasan-14/EdgeDefectNet" rel="noopener">GitHub</a>
     </nav>
+    <button class="icon-btn" id="theme" type="button" aria-label="Switch to light theme" aria-pressed="false">
+      <svg class="i-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/></g></svg>
+    </button>
   </header>
 
   <main id="top">
-    <section class="hero">
+    <section class="hero" aria-labelledby="h1">
       <div class="hero-copy">
-        <h1>Read a wafer map<br>in your browser.</h1>
-        <p class="lede">A grayscale ResNet-18 sorts wafer images into nine defect classes. The model runs here on your
-          device with ONNX Runtime Web, so images never leave your computer.</p>
-      </div>
-      <div class="wafer-stage" id="stage">
-        <canvas id="wafer" aria-label="3D wafer showing the selected image"></canvas>
-        <div class="stage-note" id="stageNote">Pick an example or drop an image</div>
-      </div>
-    </section>
-
-    <section class="workbench">
-      <div class="panel input-panel">
-        <h2>Image</h2>
-        <label class="drop" id="drop" tabindex="0">
-          <input type="file" id="file" accept="image/*">
-          <span class="drop-title">Drop a wafer image here</span>
-          <span class="drop-sub">or click to choose a PNG or JPG</span>
-        </label>
-        <h3>Held-out examples</h3>
-        <p class="hint">One image per class from the test split, never seen in training.</p>
-        <div class="examples" id="examples"></div>
-      </div>
-
-      <div class="panel result-panel" aria-live="polite">
-        <h2>Prediction</h2>
-        <div class="status" id="status">The model (45 MB) downloads the first time you classify an image.</div>
-        <div class="progress" id="progress" hidden><div class="bar" id="bar"></div></div>
-        <div class="top" id="top1" hidden>
-          <div class="top-label" id="topLabel"></div>
-          <div class="top-conf" id="topConf"></div>
-          <div class="truth" id="truth"></div>
+        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span>Runs entirely on your device</p>
+        <h1 id="h1">Read a wafer map <span class="grad">in your browser.</span></h1>
+        <p class="lede">A grayscale ResNet-18 sorts wafer images into nine defect classes. The model runs here with ONNX Runtime
+          Web, so your images never leave your computer.</p>
+        <div class="cta">
+          <a class="btn primary" href="#try">Classify an image</a>
+          <a class="btn ghost" href="#classes">Explore the nine classes</a>
         </div>
-        <ol class="bars" id="bars"></ol>
-        <p class="timing" id="timing"></p>
+        <ul class="chips" aria-label="Key facts">
+          <li><b id="heroAcc">98.0%</b> held-out accuracy</li>
+          <li><b>9</b> defect classes</li>
+          <li><b>45&nbsp;MB</b> ONNX model</li>
+        </ul>
+      </div>
+
+      <div class="stage glass" id="stage">
+        <canvas id="wafer" tabindex="0" role="img"
+          aria-label="Interactive 3D wafer. Coloured arcs around its edge stand for the nine defect classes. Drag or use the arrow keys to rotate."></canvas>
+        <div class="stage-note" id="stageNote">Preparing the 3D view…</div>
+        <div class="stage-top">
+          <span class="stage-title" id="stageTitle">Edge-class map</span>
+          <span class="stage-sub" id="stageSub">Arc brightness follows the model's probabilities</span>
+        </div>
+        <ul class="legend" id="legend" aria-label="Defect classes, shown as arcs on the wafer edge"></ul>
+        <p class="stage-hint"><span>Drag to rotate</span><span aria-hidden="true">·</span><span>Illustrative: arcs index the classes, they do not locate defects</span></p>
       </div>
     </section>
 
-    <section class="model" id="model">
-      <h2>Model card</h2>
+    <section class="try" id="try" aria-labelledby="tryH">
+      <div class="section-head">
+        <h2 id="tryH">Try it</h2>
+        <p>Drop a wafer image, paste one from the clipboard, or pick a held-out example. The first prediction downloads the 45&nbsp;MB model once; after that everything is instant.</p>
+      </div>
+      <div class="workbench">
+        <div class="panel glass input-panel">
+          <h3 class="panel-title">Image</h3>
+          <button class="drop" id="drop" type="button">
+            <input type="file" id="file" accept="image/*" tabindex="-1" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><path d="M24 33V11m0 0-8 8m8-8 8 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 31v5a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3v-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+            <span class="drop-title">Drop a wafer image here</span>
+            <span class="drop-sub">or click to choose a PNG or JPG. You can also paste with Ctrl/Cmd+V.</span>
+          </button>
+          <div class="preview" id="preview" hidden>
+            <canvas id="previewCanvas" width="224" height="224" aria-label="The image as the model sees it: grayscale, 224 by 224 pixels"></canvas>
+            <div><b id="previewName">image</b><span id="previewMeta"></span></div>
+          </div>
+          <h3 class="panel-title spaced">Held-out examples</h3>
+          <p class="hint">One image per class from the test split, never seen during training.</p>
+          <div class="examples" id="examples" role="group" aria-label="Example wafer images"></div>
+        </div>
+
+        <div class="panel glass result-panel" id="result" data-state="idle">
+          <h3 class="panel-title">Prediction</h3>
+
+          <div class="state state-idle">
+            <div class="idle-ring" aria-hidden="true"></div>
+            <p>Pick an example or drop an image to see the prediction.</p>
+          </div>
+
+          <div class="state state-busy" role="status" aria-live="polite">
+            <p id="busyText">Starting…</p>
+            <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="bar"></div></div>
+            <p class="hint" id="busyHint"></p>
+          </div>
+
+          <div class="state state-error" role="alert">
+            <p id="errorText"></p>
+            <button class="btn ghost small" id="retry" type="button">Try again</button>
+          </div>
+
+          <div class="state state-done">
+            <div class="verdict">
+              <div class="gauge" aria-hidden="true">
+                <svg viewBox="0 0 160 160">
+                  <defs><filter id="gaugeGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter></defs>
+                  <circle class="g-track" cx="80" cy="80" r="68"/>
+                  <circle class="g-glow" id="gGlow" cx="80" cy="80" r="68" filter="url(#gaugeGlow)"/>
+                  <circle class="g-arc" id="gArc" cx="80" cy="80" r="68"/>
+                </svg>
+                <div class="g-num"><span id="gNum">0</span><small>%</small></div>
+              </div>
+              <div class="verdict-text" aria-live="polite">
+                <span class="kicker">Predicted class</span>
+                <strong id="topLabel">–</strong>
+                <span id="topConf" class="conf-line"></span>
+                <span id="truth" class="truth"></span>
+              </div>
+            </div>
+            <p class="confidence-note" id="confNote"></p>
+            <ol class="bars" id="bars" aria-label="Probability of each class"></ol>
+            <div class="explain" id="explain"></div>
+            <p class="timing" id="timing"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="classes" id="classes" aria-labelledby="classesH">
+      <div class="section-head">
+        <h2 id="classesH">The nine classes</h2>
+        <p>Each card pairs the defect with what the model typically sees in this dataset. Hover or focus a card to light up its arc on the wafer.</p>
+      </div>
+      <div class="class-grid" id="classGrid"></div>
+    </section>
+
+    <section class="model" id="model" aria-labelledby="modelH">
+      <div class="section-head">
+        <h2 id="modelH">Model card</h2>
+        <p>Measured once on the held-out test split, after training and model selection were finished.</p>
+      </div>
       <div class="model-grid">
-        <div class="panel">
-          <h3>Held-out test results</h3>
+        <div class="panel glass">
+          <h3 class="panel-title">Held-out test results</h3>
           <div class="stats" id="stats"><p class="hint">Loading metrics…</p></div>
           <div class="sources" id="sources"></div>
+          <h3 class="panel-title spaced">Per class</h3>
+          <div class="table-wrap"><table class="perclass" id="perClass"><caption class="sr-only">Precision, recall and F1 per class on the test split</caption></table></div>
         </div>
-        <div class="panel">
-          <h3>Confusion matrix</h3>
-          <p class="hint">Rows are true classes, columns are predictions. Darker means more images.</p>
-          <div class="matrix" id="matrix"></div>
+        <div class="panel glass">
+          <h3 class="panel-title">Confusion matrix</h3>
+          <p class="hint">Rows are true classes, columns are predictions. Brighter cells hold more images.</p>
+          <div class="matrix" id="matrix" role="table" aria-label="Confusion matrix on the test split"></div>
         </div>
-        <div class="panel wide">
-          <h3>Read this before trusting a prediction</h3>
+        <div class="panel glass wide">
+          <h3 class="panel-title">Read this before trusting a prediction</h3>
           <ul class="caveats">
-            <li>Most training images are WM-811K-style wafer maps. Their spatial patterns were mapped onto the
-              challenge's class names (for example <em>Center</em> became <em>Shorts</em>), so for those images
-              the names are proxy labels, not electrical diagnoses.</li>
-            <li><em>Vias</em> has only 23 images in total, so its scores are very uncertain.</li>
-            <li>The split keeps every augmented copy of a wafer in one partition. The first version of this
-              project leaked copies across train and test and mislabelled its outputs; the
-              <a href="https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/blob/main/reports/v1_audit.md">audit</a>
+            <li>Most training images are WM-811K-style wafer maps. Their spatial patterns were mapped onto the challenge's class
+              names (for example <em>Center</em> became <em>Shorts</em>), so for those images the names are proxy labels, not
+              electrical diagnoses.</li>
+            <li><em>Vias</em> has only 23 images in total (4 in the test split), so its scores are very uncertain.</li>
+            <li>The confidence shown is a softmax score. It is not calibrated, and the model always picks one of the nine classes,
+              even for an image that is not a wafer.</li>
+            <li>The split keeps every augmented copy of a wafer in one partition. The first version of this project leaked copies
+              across train and test and mislabelled its outputs; the
+              <a href="https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/blob/main/reports/v1_audit.md" rel="noopener">audit</a>
               explains both.</li>
           </ul>
         </div>
@@ -91,8 +196,8 @@
   </main>
 
   <footer class="foot">
-    <span>Built by Sandeep Srinivasan under the MIT licence</span>
-    <span>Archivo font, SIL Open Font License</span>
+    <span>Built by Sandeep Srinivasan under the MIT licence. <a href="https://github.com/Sandeepsrinivasan-14/EdgeDefectNet/blob/main/MODEL_CARD.md" rel="noopener">Full model card</a></span>
+    <span>Archivo font, SIL Open Font License · three.js and ONNX Runtime Web are loaded from pinned CDN versions with integrity checks</span>
   </footer>
 
   <script src="app.js" type="module"></script>
