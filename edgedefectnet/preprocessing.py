@@ -81,7 +81,8 @@ def load_grayscale(path: str | os.PathLike[str], allowed_root: str | os.PathLike
     try:
         with Image.open(resolved) as img:
             validate_image(img)  # dimensions come from the header, before the pixels are decoded
-            return img.convert("L")
+            gray: Image.Image = img.convert("L")
+            return gray
     except InvalidImageError:
         raise
     except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError) as exc:
