@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+from edgedefectnet.classes import CLASS_NAMES
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -23,6 +25,15 @@ def test_site_contents(tmp_path):
     assert listed
     assert all((site / "examples" / name).is_file() for name in listed)
     assert (site / ".nojekyll").exists()
+
+
+def test_site_ships_class_manifest_matching_the_package(tmp_path):
+    site = _load_builder().build(tmp_path / "_site")
+    classes = json.loads((site / "classes.json").read_text())
+    assert [c["name"] for c in classes] == CLASS_NAMES  # logit order
+    for c in classes:
+        assert set(c) == {"name", "color", "summary", "looks_like", "source"}
+        assert c["color"].startswith("#") and len(c["color"]) == 7
 
 
 def test_site_rebuild_is_idempotent(tmp_path):

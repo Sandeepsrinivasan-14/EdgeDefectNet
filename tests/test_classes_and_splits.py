@@ -1,7 +1,7 @@
 from collections import defaultdict
 from pathlib import Path
 
-from edgedefectnet.classes import CLASS_NAMES
+from edgedefectnet.classes import CLASS_INFO, CLASS_NAMES
 from edgedefectnet.splits import Item, assign_splits, group_id, read_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,6 +11,13 @@ def test_class_names_are_in_imagefolder_order():
     # torchvision.datasets.ImageFolder assigns labels in sorted folder order; the model's logits follow it.
     assert sorted(CLASS_NAMES) == CLASS_NAMES
     assert len(CLASS_NAMES) == 9
+
+
+def test_every_class_is_described_with_a_distinct_colour():
+    assert list(CLASS_INFO) == CLASS_NAMES
+    colours = [info["color"] for info in CLASS_INFO.values()]
+    assert len(set(colours)) == len(CLASS_NAMES)
+    assert all(info["summary"] and info["looks_like"] and info["source"] for info in CLASS_INFO.values())
 
 
 def test_group_id_strips_roboflow_suffix():

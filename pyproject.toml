@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-demo = ["gradio>=4.44"]
+demo = ["gradio>=6.0,<7"]
 train = [
     "torch>=2.3",
     "torchvision>=0.18",
