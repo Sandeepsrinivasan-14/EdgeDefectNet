@@ -33,7 +33,6 @@ if TYPE_CHECKING:
 MODEL_ENV_VAR = "EDGEDEFECTNET_MODEL"
 #: Path of the model in a source checkout.
 CHECKOUT_MODEL = Path(__file__).resolve().parents[1] / "models" / "edgedefectnet.onnx"
-DEFAULT_MODEL = CHECKOUT_MODEL
 
 ImageInput = str | os.PathLike[str] | Image.Image
 
@@ -103,9 +102,14 @@ class Predictor:
     Args:
         model_path: ONNX file; defaults to ``$EDGEDEFECTNET_MODEL`` or ``models/edgedefectnet.onnx``.
         verify: check the file's SHA-256 against the ``<model>.sha256`` sidecar before loading.
+        allowed_root: confine image *paths* given to :meth:`predict` and friends to this directory tree (symlinks and
+            ``..`` are resolved first, so they cannot escape). Set it whenever paths come from somebody else. In-memory
+            PIL images are never affected; for untrusted input prefer :meth:`predict_image`, which has no path handling at all.
     """
 
-    def __init__(self, model_path: str | Path | None = None, *, verify: bool = False) -> None:
+    def __init__(
+        self, model_path: str | Path | None = None, *, verify: bool = False, allowed_root: str | Path | None = None
+    ) -> None:
         import onnxruntime as ort
 
         path = Path(model_path) if model_path is not None else Path(os.environ.get(MODEL_ENV_VAR) or CHECKOUT_MODEL)
@@ -119,30 +123,42 @@ class Predictor:
         except Exception as exc:  # onnxruntime raises several unrelated exception types for bad files
             raise ModelError(f"cannot load model {path}: {exc}") from exc
         self.model_path = path
+        self.allowed_root = Path(allowed_root) if allowed_root is not None else None
         self.input_name: str = self.session.get_inputs()[0].name
         n_out = self.session.get_outputs()[0].shape[-1]
         if n_out != len(CLASS_NAMES):
             raise ModelError(f"model has {n_out} outputs but there are {len(CLASS_NAMES)} classes")
 
-    def logits(self, image: ImageInput) -> NDArray[np.float32]:
-        if isinstance(image, (str, os.PathLike)):
-            img = load_grayscale(Path(image))
-        elif isinstance(image, Image.Image):
-            img = image
-        else:
-            raise TypeError(f"expected a file path or PIL.Image, got {type(image).__name__}")
+    def _run(self, img: Image.Image) -> NDArray[np.float32]:
         out = self.session.run(None, {self.input_name: to_input_array(img)})[0][0]
         if not np.isfinite(out).all():
             raise ModelError("model produced non-finite outputs")
         return np.asarray(out, dtype=np.float32)
 
+    def logits(self, image: ImageInput) -> NDArray[np.float32]:
+        if isinstance(image, (str, os.PathLike)):
+            return self._run(load_grayscale(image, self.allowed_root))
+        if isinstance(image, Image.Image):
+            return self._run(image)
+        raise TypeError(f"expected a file path or PIL.Image, got {type(image).__name__}")
+
     def predict_index(self, image: ImageInput) -> int:
         return int(np.argmax(self.logits(image)))
 
-    def predict(self, image: ImageInput) -> Prediction:
-        probs = softmax(self.logits(image))
+    @staticmethod
+    def _to_prediction(logits: NDArray[np.float32]) -> Prediction:
+        probs = softmax(logits)
         idx = int(np.argmax(probs))
         return Prediction(CLASS_NAMES[idx], float(probs[idx]), {c: float(p) for c, p in zip(CLASS_NAMES, probs)})
+
+    def predict(self, image: ImageInput) -> Prediction:
+        return self._to_prediction(self.logits(image))
+
+    def predict_image(self, image: Image.Image) -> Prediction:
+        """Classify an already-decoded image. Never touches the file system, so it is the entry point for untrusted input."""
+        if not isinstance(image, Image.Image):
+            raise TypeError(f"expected PIL.Image, got {type(image).__name__}")
+        return self._to_prediction(self._run(image))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -152,6 +168,9 @@ def main(argv: list[str] | None = None) -> int:
         "--model", type=Path, default=None, help=f"ONNX model (default: ${MODEL_ENV_VAR} or models/edgedefectnet.onnx)"
     )
     ap.add_argument("--top", type=int, default=3, help=f"number of classes to report (1-{len(CLASS_NAMES)})")
+    ap.add_argument(
+        "--root", type=Path, default=None, help="only read images inside this directory (relative paths are resolved against it)"
+    )
     ap.add_argument("--json", action="store_true", help="print one JSON object per image")
     ap.add_argument("--verify", action="store_true", help="check the model's SHA-256 against its .sha256 sidecar first")
     ap.add_argument("--version", action="version", version=f"edgedefectnet {__version__}")
@@ -160,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.error(f"--top must be between 1 and {len(CLASS_NAMES)}")
 
     try:
-        predictor = Predictor(args.model, verify=args.verify)
+        predictor = Predictor(args.model, verify=args.verify, allowed_root=args.root)
     except (FileNotFoundError, ModelError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -169,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in args.images:
         try:
             pred = predictor.predict(path)
-        except (FileNotFoundError, InvalidImageError) as exc:
+        except (FileNotFoundError, InvalidImageError) as exc:  # includes paths rejected by --root
             failures += 1
             if args.json:
                 print(json.dumps({"image": str(path), "error": str(exc)}))
